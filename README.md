@@ -35,8 +35,22 @@ reconstruction. At a 20% supervision rate, ALMEA improves MRR and Hits@1 by up
 to **5.20%** and **6.40%**, respectively, compared with the strongest baseline.
 
 <p align="center">
-  <img src="picture/Figure_one_png.png" alt="Overview of DM, CI, and ALMEA" width="760"/>
+  <img src="picture/figure_1_top.png" alt="Illustrative examples of Detail Missing and Context Imbalance" width="900"/>
+  <br>
+  <img src="picture/figure_1_middle.png" alt="DM and CI statistics on the MMEA benchmarks" width="900"/>
+  <br>
+  <img src="picture/figure_1_bottom.png" alt="ALMEA framework" width="900"/>
 </p>
+
+**Figure 1.** Overview of DM/CI challenges in MMEA benchmarks and the proposed
+ALMEA framework. **Top:** Two illustrative aligned entity pairs with Detail
+Missing (DM) and Context Imbalance (CI). “x” denotes a missing modality, and CI
+is measured using modality-wise contextual discrepancies between ground-truth
+pairs across the source and target KGs. **Middle:** Overall DM rates and CI
+distributions on FB15K-DB15K and FB15K-YAGO15K. **Bottom:** Cross-Modality
+Imputation restores missing low-level details to mitigate DM-induced
+overvaluation, whereas Latent Semantic Calibration aligns latent semantics
+across KGs to alleviate CI-induced suppression.
 
 ## Experimental Scope
 
