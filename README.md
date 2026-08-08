@@ -1,201 +1,160 @@
-# ALMEA: Active Learning-Enhanced Multimodal Entity Alignment with Semantically-Calibrated Modality Imputation
+# Silence and Noise: Resolving Suppression and Overvaluation in Multimodal Entity Alignment
 
-This repository contains the implementation of our method proposed in the NeurIPS 2025 submission titled "ALMEA: Active Learning-Enhanced Multimodal Entity Alignment with Semantically-Calibrated Modality Imputation".
+Official implementation of **ALMEA**.
 
-> **Note**: This repository is anonymous and intended solely for the purpose of double-blind peer review.
+**Xizhe Zhang, Meng-Fen Chiang, and Jingfeng Zhang**
 
-> Multimodal knowledge graphs (MMKGs) offer enriched knowledge representation by integrating structural, visual, and textual information from heterogeneous sources. However, existing multimodal entity alignment (MMEA) approaches face significant challenges due to missing modalities and semantic inconsistencies across sources. These limitations compromise alignment robustness, especially in low-resource scenarios with limited seed pairs. To bridge the gap, we propose \textbf{ALMEA}, a novel MMEA framework that integrates semantic calibration and active learning to improve alignment. Specifically, ALMEA synthesizes embeddings for missing modalities and refines semantic representations to address inconsistencies across MMKGs. With active learning strategy, it iteratively selects optimal candidate pairs within a learnable budget, enabling more effective acquisition of modality information in low-resource scenarios. Extensive experiments on benchmark MMKG datasets demonstrate that ALMEA consistently outperforms state-of-the-art baselines, achieving an MRR improvement of approximately 4.70\%. The effectiveness of the semantic calibration was also confirmed by the non-active variant in the ablation study, with accuracy improvements of 2.02\% and 2.85\%.
+## Overview
+
+Multimodal entity alignment (MMEA) remains vulnerable to incomplete modalities
+and cross-graph topological discrepancies. Existing studies commonly treat these
+defects as separate reconstruction or alignment problems, overlooking how they
+affect multimodal fusion. We systematically characterize two coupled failure
+modes:
+
+- **DM-induced overvaluation.** Detail Missing (DM) causes the model to
+  overemphasize ambiguous modality representations produced from absent
+  low-level information.
+- **CI-induced suppression.** Context Imbalance (CI) allows modalities supported
+  by information-rich graph contexts to dominate weaker modalities, leading to
+  semantic drift.
+
+ALMEA is a generative framework for iterative learning-based MMEA. It consists
+of three components:
+
+- **Cross-Modality Imputation (CMI)** restores missing low-level details from
+  visible modalities.
+- **Latent Semantic Calibration (LSC)** aligns reconstructed joint embeddings
+  across knowledge graphs.
+- **Controlled Iterative Selection (CIS)** selects representative and diverse
+  candidate pairs when supervision is limited.
+
+CMI and LSC form a bidirectional feedback loop: restored modality details
+constrain semantic alignment, while aligned semantics guide subsequent
+reconstruction. At a 20% supervision rate, ALMEA improves MRR and Hits@1 by up
+to **5.20%** and **6.40%**, respectively, compared with the strongest baseline.
+
 <p align="center">
-  <img src="picture/Figure_one_png.png" alt="ALMEA Framework" width="700"/>
+  <img src="picture/Figure_one_png.png" alt="Overview of DM, CI, and ALMEA" width="760"/>
 </p>
 
-## 🔧 Environment Setup
+## Experimental Scope
 
-We provide a `requirements.txt` file for setting up the Python environment. Below are the main dependencies used in this project:
+The paper evaluates ALMEA on the cross-KG benchmarks **FB15K-DB15K** and
+**FB15K-YAGO15K**, using 20%, 50%, and 80% of the ground-truth aligned entity
+pairs for training. It also reports multilingual results on
+**DBP15K<sub>ZH-EN</sub>**, **DBP15K<sub>JA-EN</sub>**, and
+**DBP15K<sub>FR-EN</sub>**.
+Alignment is evaluated using MRR, Hits@1, and Hits@10.
+
+The current experiment launcher provides the FB15K-DB15K and FB15K-YAGO15K
+settings under the identifiers `FBDB15K` and `FBYG15K`, respectively.
+
+## Setup
+
+Install the dependencies with:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 📦 Details
+The versions used by this repository are listed in `requirements.txt`.
 
-- Python (>= 3.9)
-- [PyTorch](https://pytorch.org/) (~= 2.5.1 + cu121)
-- [NumPy](https://numpy.org/) (~= 2.2.1)
-- [Transformers](https://huggingface.co/transformers/) (~= 4.47.1)
-- [TQDM](https://tqdm.github.io/) (~= 4.66.4)
-- [SciPy](https://scipy.org/) (~= 1.14.1)
-- [Seaborn](https://seaborn.pydata.org/) (~= 0.13.2)
-- [Matplotlib](https://matplotlib.org/) (~= 3.10.0)
-- [Scikit-learn](https://scikit-learn.org/) (~= 1.5.2)
-- [Pandas](https://pandas.pydata.org/) (~= 2.2.3)
-- [EasyDict](https://pypi.org/project/easydict/) (~= 1.13)
-- [Unidecode](https://pypi.org/project/Unidecode/) (~= 1.3.8)
-- 
-## 📚 Dataset
+## Data
 
-❗**Note**: Download the dataset from [Google Drive (0.93 GB)](https://drive.google.com/file/d/1cX1LEMwECwsadmBc3iMu5LTUS5wlwZ30/view?usp=sharing) and unzip it to match the following directory structure:
+Download the processed MMKG data from
+[Google Drive](https://drive.google.com/file/d/1cX1LEMwECwsadmBc3iMu5LTUS5wlwZ30/view?usp=sharing)
+and extract it beside the repository:
+
 ```text
 ROOT/
 ├── data/
 │   └── mmkg/
+│       ├── FBDB15K/
+│       │   └── norm/
+│       ├── FBYG15K/
+│       │   └── norm/
+│       ├── embedding/
+│       └── pkls/
 └── GitHub/
     └── ALMEA/
 ```
-❗**Note**:  
-The image modality provided in the MMEA repository has already been pre-processed using **ResNet-152**. If you wish to access the **raw entity images** from **DBP15K**, you can download them from [Baidu Cloud Drive (50 GB)](https://pan.baidu.com/s/1nRpSLJtTUEXDD4cgfSZZQQ) with the extraction code: `mmea`.
 
+Following the experimental settings in the paper, graph structures are encoded
+with GAT, textual attributes with GloVe-6B, and visual features with VGG16. All
+modalities are projected into a 300-dimensional space.
 
-<details>
-  <summary>📌 Accessing Entity Images via Pickle</summary>
+## Backbone Interface
+
+The repository keeps the MMEA backbone as an external interface. Add a backbone
+under `src/pre_train_models/` and return it from
+`src/pre_train_models/__init__.py`:
 
 ```python
-import pickle
-zh_images = pickle.load(open("eva_image_resources/dbp15k/zh_dbp15k_link_img_dict_full.pkl", 'rb'))
-print(zh_images["http://zh.dbpedia.org/resource/香港有線電視"].size)
+from .your_model import YourModel
+
+
+def build_model(kgs, args):
+    return YourModel(kgs, args)
 ```
-</details>
 
-## 📦 Code Structure
+The backbone must implement:
 
-<details>
-  <summary>👈 🔎 Click</summary>
+```python
+forward(batch)       # returns loss, output, sub_embeddings
+get_embeddings()     # returns embeddings for all entities
+```
+
+`output` must contain `loss_dic` and may contain `weight`. `sub_embeddings` is
+the modality-embedding list used by CIS. Model-specific options can be added to
+`config.py`.
+
+## Run Experiments
+
+```bash
+bash run_experiments.sh DEVICE DATASET EPOCH DATA_RATE MASKING ALPHA
+```
+
+| Argument | Description | Example |
+|---|---|---|
+| `DEVICE` | CUDA device index | `0` |
+| `DATASET` | `FBDB15K` or `FBYG15K` | `FBDB15K` |
+| `EPOCH` | Base-training epochs | `500` |
+| `DATA_RATE` | Initial seed-alignment ratio | `0.2` |
+| `MASKING` | Modality masking probability | `0.45` |
+| `ALPHA` | CIS sparsification strength | `0.35` |
+
+Example:
+
+```bash
+bash run_experiments.sh 0 FBDB15K 500 0.2 0.45 0.35
+```
+
+The main experiment commands are collected in `run.sh`. Other training options
+and their defaults are defined in `config.py`.
+
+## Repository Structure
 
 ```text
-ALEA/
-├── picture/
+ALMEA/
+├── picture/                    # Framework and analysis figures
 ├── src/
-│   ├── data_processing/
-│   │   ├── __init__.py
-│   │   ├── data.py
-│   │   ├── distributed_utils.py
-│   │   ├── tensorBoardManager.py
-│   │   └── utils.py
-│   ├── pre_train_models/
-│   │   ├── __init__.py
-│   │   ├── GNN_tools.py
-│   │   ├── layers.py
-│   │   ├── MCLEA.py
-│   │   ├── MCLEA_loss.py
-│   │   ├── MCLEA_tools.py
-│   │   ├── RANKER.py
-│   │   └── Tool_model.py
-│   ├── torchlight/
-│   │   ├── __init__.py
-│   │   ├── logger.py
-│   │   ├── metric.py
-│   │   └── utils.py
-│   ├── __init__.py
-│   ├── ACS_ADMM.py
-│   ├── almea.py
-│   └── Semantic_Calibration_KL.py
+│   ├── data_processing/        # Dataset loading and preprocessing
+│   ├── pre_train_models/       # External backbone interface
+│   ├── torchlight/             # Logging and evaluation utilities
+│   ├── ACS_ADMM.py             # CIS optimization
+│   ├── Semantic_Calibration_KL.py
+│   └── almea.py                # CMI and LSC
 ├── config.py
-├── main.py
-├── README.md
+├── main.py                     # Training, evaluation, and CIS loop
 ├── requirements.txt
 ├── run.sh
 └── run_experiments.sh
 ```
-</details>
 
-## Data Path
+## Acknowledgements
 
-<details>
-  <summary>👈 🔎 Click</summary>
-
-```text
-mmkg
-├── DBP15K
-│   ├── fr_en
-│   │   ├── ent_ids_1
-│   │   ├── ent_ids_2
-│   │   ├── ill_ent_ids
-│   │   ├── training_attrs_1
-│   │   ├── training_attrs_2
-│   │   ├── triples_1
-│   │   └── triples_2
-│   ├── ja_en
-│   │   ├── ent_ids_1
-│   │   ├── ent_ids_2
-│   │   ├── ill_ent_ids
-│   │   ├── training_attrs_1
-│   │   ├── training_attrs_2
-│   │   ├── triples_1
-│   │   └── triples_2
-│   ├── translated_ent_name
-│   │   ├── dbp_fr_en.json
-│   │   ├── dbp_ja_en.json
-│   │   └── dbp_zh_en.json
-│   └── zh_en
-│       ├── ent_ids_1
-│       ├── ent_ids_2
-│       ├── ill_ent_ids
-│       ├── training_attrs_1
-│       ├── training_attrs_2
-│       ├── triples_1
-│       └── triples_2
-├── FBDB15K
-│   └── norm
-│       ├── ent_ids_1
-│       ├── ent_ids_2
-│       ├── ill_ent_ids
-│       ├── training_attrs_1
-│       ├── training_attrs_2
-│       ├── triples_1
-│       └── triples_2
-├── FBYG15K
-│   └── norm
-│       ├── ent_ids_1
-│       ├── ent_ids_2
-│       ├── ill_ent_ids
-│       ├── training_attrs_1
-│       ├── training_attrs_2
-│       ├── triples_1
-│       └── triples_2
-├── embedding
-│   └── glove.6B.300d.txt
-├── pkls
-│   ├── dbpedia_wikidata_15k_dense_GA_id_img_feature_dict.pkl
-│   ├── dbpedia_wikidata_15k_norm_GA_id_img_feature_dict.pkl
-│   ├── FBDB15K_id_img_feature_dict.pkl
-│   ├── FBYG15K_id_img_feature_dict.pkl
-│   ├── fr_en_GA_id_img_feature_dict.pkl
-│   ├── ja_en_GA_id_img_feature_dict.pkl
-│   └── zh_en_GA_id_img_feature_dict.pkl
-├── MEAformer
-└── dump
-```
-</details>
-
-❗**Note**:  
-Our experiments in this work are conducted exclusively on **FBDB15K** and **FBYG15K**.  
-We deliberately exclude **DBP15K** (*fr_en*, *ja_en*, *zh_en*) due to potential surface form leakage,  which may lead to unreliable or overestimated results. To ensure fair and trustworthy evaluation, we therefore abandon DBP15K in our main experimental analysis.
-
-## 🧪 Experiment Script
-The following script executes a series of entity alignment experiments on two datasets: **FBDB15K** and **FBYG15K**, under varying initial training alignment seeds ratios and masking thresholds.
-```bash
-bash run_experiments.sh 0 FBDB15K 0.2 0.45
-bash run_experiments.sh 0 FBDB15K 0.5 0.45
-bash run_experiments.sh 0 FBDB15K 0.8 0.45
-
-bash run_experiments.sh 0 FBYG15K 0.2 0.50
-bash run_experiments.sh 0 FBYG15K 0.5 0.50
-bash run_experiments.sh 0 FBYG15K 0.8 0.50
-```
-### 🧪 Script Parameters
-
-The `run_experiments.sh` script takes the following four arguments:
-
-| Parameter     | Variable      | Description                                                                 |
-|---------------|---------------|-----------------------------------------------------------------------------|
-| `DEVICE`      | `$1`          | GPU ID to use for training (e.g., `0`)                                     |
-| `DATASET`     | `$2`          | Dataset name (`FBDB15K` or `FBYG15K`)                                      |
-| `DATA_RATE`   | `$3`          | Proportion of initial alignment seed pairs used for training (e.g., `0.2`, `0.5`, `0.8`)        |
-| `MASKING`     | `$4`          | Masking threshold for(e.g., `0.45` or `0.50`) for dynamically controls the contribution of each modality during training           |
-
-## 💡 Acknowledgement
-
-We appreciate the following open-source projects for their contributions to the field of multimodal and entity alignment research, which have inspired and facilitated our work:
+This implementation benefits from the following open-source MMEA projects:
 
 - [MCLEA](https://github.com/lzxlin/MCLEA)
 - [MSNEA](https://github.com/liyichen-cly/MSNEA)
@@ -203,6 +162,3 @@ We appreciate the following open-source projects for their contributions to the 
 - [MMEA](https://github.com/liyichen-cly/MMEA)
 - [MEAformer](https://github.com/zjukg/MEAformer)
 - [GEEA](https://github.com/zjukg/GEEA)
-
-We sincerely thank the authors of these projects for their open-source contributions.
-

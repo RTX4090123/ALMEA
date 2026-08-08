@@ -19,7 +19,7 @@ from src.torchlight import initialize_exp, set_seed, get_dump_path
 from src.data_processing.data import load_data, Collator_base
 from src.data_processing.utils import set_optim, Loss_log, pairwise_distances, csls_sim
 
-from src.pre_train_models import MCLEA
+from src.pre_train_models import build_model
 
 from src.data_processing.distributed_utils import is_main_process
 
@@ -62,7 +62,7 @@ class Runner:
         self.best_data_list = []
 
     def model_choice(self):
-        self.model = MCLEA(self.KGs, self.args)
+        self.model = build_model(self.KGs, self.args)
         self.model = self._load_model(self.model)
 
         total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -111,7 +111,7 @@ class Runner:
         self.curr_loss = 0.
         self.lr = self.args.lr
         self.curr_loss_dic = defaultdict(float)
-        self.weight = [1, 1, 1, 1, 1, 1]
+        self.weight = None
         self.loss_weight = [1, 1]
         self.loss_item = 99999.
         self.step = 1
@@ -461,13 +461,13 @@ class Runner:
 
     def _test(self, test_left, test_right, last_epoch=False, save_name="", loss=None):
         with torch.no_grad():
-            w_normalized = F.softmax(self.model.multimodal_encoder.fusion.weight.reshape(-1), dim=0)
-            if self.rank == 0:
+            if self.weight is not None and self.rank == 0:
+                w_normalized = F.softmax(torch.as_tensor(self.weight), dim=0)
                 appdx = ""
                 self.logger.info(
                     f"weight_raw:[img_{w_normalized[0]:.3f}]-[attr_{w_normalized[1]:.3f}]-[rel_{w_normalized[2]:.3f}]-[graph_{w_normalized[3]:.3f}]{appdx}")
 
-            final_emb = self.model.joint_emb_generat()
+            final_emb = self.model.get_embeddings()
             final_emb = F.normalize(final_emb)
         top_k = [1, 10, 50]
 
