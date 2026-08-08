@@ -112,17 +112,6 @@ def build_model(kgs, args):
     return YourModel(kgs, args)
 ```
 
-The backbone must implement:
-
-```python
-forward(batch)       # returns loss, output, sub_embeddings
-get_embeddings()     # returns embeddings for all entities
-```
-
-`output` must contain `loss_dic` and may contain `weight`. `sub_embeddings` is
-the modality-embedding list used by CIS. Model-specific options can be added to
-`config.py`.
-
 ## Run Experiments
 
 ```bash
